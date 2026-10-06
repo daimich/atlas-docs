@@ -2,108 +2,103 @@
 
 **Document intelligence with evidence you can inspect.**
 
-Atlas ingests contracts, policies, and reports, retrieves relevant passages, and returns their original document and page references. Start in an offline evidence mode; optionally add dense semantic retrieval and a local Ollama model for cited synthesis.
+Atlas uploads and indexes documents, searches their passages, and answers with original document/page references. It works offline in evidence mode, with optional semantic retrieval and local Ollama generation. Version 0.2 adds persistent embeddings, model diagnostics, live index refresh, and browser, Docker, and real-model acceptance tests.
 
-This is a working portfolio MVP with a local web interface, CLI, JSON API, SQLite persistence, reproducible toy evaluations, and CI. It is not a production legal research service.
+The supported scope is a single-user local application. Generated claims include exact source excerpts; citation validity does not establish that the interpretation is correct.
 
-## Quick start
+## Start locally
 
-Requires Python 3.11+. The default text/Markdown demo has **no third-party dependencies**.
+Requires Python 3.11+. After cloning or extracting the source archive:
 
 ```bash
 git clone https://github.com/daimich/atlas-docs.git
 cd atlas-docs
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install '.[pdf]'
 python -m atlas ingest examples/documents
+python -m atlas doctor
 python -m atlas serve
 ```
 
-Open **http://127.0.0.1:8080**. Upload a document or ask “How much notice is required for termination?”
-
-If you downloaded the source archive, extract it and start at `cd atlas-docs`; cloning requires the remote repository to exist.
+On Windows, activate with `.venv\Scripts\activate` instead. Open **http://127.0.0.1:8080**, upload a document, and ask “How much notice is required for termination?” Text/Markdown mode also runs directly from source without third-party dependencies. If you downloaded an archive, skip cloning and start in its extracted project folder.
 
 ```bash
 python -m atlas ask "What is the liability limit?"
 python -m atlas list
-python -m atlas eval
-python -m unittest discover -s tests -v
+python -m atlas delete DOCUMENT_ID
 ```
 
-For an installed CLI, run `python -m pip install .`, then use `atlas` in place of `python -m atlas`. Windows users may use `py` in place of `python`.
+The installed `atlas` command is equivalent to `python -m atlas`. CLI changes appear in the running server on its next query. Data lives in `.atlas/index.sqlite3`; the global `--db /path/to/index.sqlite3` option selects another workspace.
 
 ## What works
 
-| Capability | Implementation |
+| Capability | Behavior |
 |---|---|
-| Ingestion | UTF-8 text/Markdown; optional text-based PDF extraction |
-| Provenance | SHA-256 document IDs; immutable document/page/chunk references |
-| Chunking | 160-word chunks, 32-word overlap; no chunks cross PDF pages |
-| Retrieval | BM25 by default; optional dense cosine search fused with reciprocal rank fusion |
-| Answers | Original retrieved passages by default; optional locally generated cited claims |
-| Citation checks | Unknown citation IDs and nonmatching quotes are rejected |
-| Persistence | Transactional SQLite ingestion, content deduplication, cascading deletion |
-| Interface | Local web workspace, CLI, and JSON endpoints |
-| Evaluation | Recall@5 and MRR@5 on six fictional document queries |
+| Documents | UTF-8 text/Markdown and text-based PDFs with the `pdf` extra |
+| Provenance | Content-hash IDs and page-specific passages; chunks never cross PDF pages |
+| Retrieval | BM25 inverted index; optional normalized dense embeddings and reciprocal rank fusion |
+| Answers | Retrieved excerpts by default; optional generated claims with exact source references |
+| Persistence | Transactional SQLite ingestion, deduplication, cascading deletion, live refresh |
+| Embeddings | Content-addressed SQLite cache reused across restarts and unchanged documents |
+| Interface | Browser upload/search/delete, CLI, JSON API, and model readiness diagnostics |
+| Verification | Regression tests, Chromium workflow, Docker restart test, real-model workflow |
 
-## Optional semantic retrieval
+PDFs must be unencrypted, at most 15 MiB and 2,000 pages. Scanned PDFs require OCR before uploading. Text files use page 1 as their citation anchor. Retrieval scores are diagnostics, not confidence probabilities.
 
-```bash
-python -m pip install '.[semantic]'
-python -m atlas --semantic-model sentence-transformers/all-MiniLM-L6-v2 ask "When can either side end the contract?"
-python -m atlas --semantic-model sentence-transformers/all-MiniLM-L6-v2 serve
-```
+## Enable AI
 
-The first model load may download weights. You can instead pass an already downloaded local model directory. The default BM25 mode does not use embeddings. Similarity thresholds are heuristic, not calibrated confidence scores.
-
-## Optional PDF support
+Install [Ollama](https://ollama.com/download) and start it (`ollama serve` if the desktop app is not already running). In another terminal:
 
 ```bash
-python -m pip install '.[pdf]'
-python -m atlas ingest /path/to/report.pdf
+ollama pull qwen2.5:1.5b
+python -m pip install '.[semantic,pdf]'
+python -m atlas --semantic-model sentence-transformers/all-MiniLM-L6-v2 --ollama-model qwen2.5:1.5b doctor
+python -m atlas --semantic-model sentence-transformers/all-MiniLM-L6-v2 --ollama-model qwen2.5:1.5b serve
 ```
 
-Encrypted PDFs and documents over 15 MiB or 2,000 pages are rejected. Scanned documents need external OCR; extraction alone cannot read images. Text/Markdown files use page 1 as their citation anchor.
+Semantic retrieval and generation can be enabled independently. Embedding weights download on first use; a local model directory also works. `doctor` loads the embedding model and checks that Ollama has the requested model, exiting with a nonzero status when setup is incomplete. Model size and hardware determine latency; the small model above is an acceptance-test baseline, not a quality guarantee.
 
-## Optional local generation
+The CLI also accepts `SEMANTIC_MODEL`, `OLLAMA_MODEL`, and `OLLAMA_URL` environment variables. `--ollama-url` defaults to `http://localhost:11434`. Documents are sent to the endpoint you configure; the default runs on your machine.
 
-Install Ollama separately and pull a model you can run on your machine, for example:
+Generation uses bounded source context and a JSON schema. Unknown citations, malformed output, and unavailable models produce visible errors. Exact excerpts are attached by the server from the cited passages. Inspect them before relying on an answer: a model can still misinterpret a source or abstain when it contains an answer.
+
+## Docker
 
 ```bash
-ollama pull llama3.2
-python -m atlas --ollama-model llama3.2 ask "What are the payment terms?"
-python -m atlas --ollama-model llama3.2 serve
+docker compose up --build -d
 ```
 
-The adapter requests JSON claims, then checks that every cited ID exists and every quote occurs verbatim in that passage. **Quote validity does not prove the claim is supported by the quote.** Prompt injection, wrong synthesis, and insufficient context remain possible; inspect the original evidence. Invalid responses fail visibly instead of silently becoming uncited answers.
+Open **http://127.0.0.1:8080**. PDF support and fictional demo documents are included. Named volumes preserve documents and caches when containers are replaced. `docker compose down` keeps them; `docker compose down -v` deletes them.
 
-## Architecture
+For the AI profile, create a local `.env` file with:
 
-```mermaid
-flowchart TD
-  A[CLI or local web UI] --> B[Service]
-  B --> C[Page extraction and chunking]
-  C --> D[SQLite documents and passages]
-  D --> E[BM25 and optional dense retrieval]
-  E --> F[Evidence or validated local generation]
-  F --> A
+```dotenv
+ENABLE_SEMANTIC=1
+SEMANTIC_MODEL=sentence-transformers/all-MiniLM-L6-v2
+OLLAMA_MODEL=qwen2.5:1.5b
 ```
 
-See [architecture and tradeoffs](docs/architecture.md), [API examples](docs/api.md), and [development roadmap](docs/roadmap.md).
-
-## Docker demo
+Then run:
 
 ```bash
-docker build -t atlas-docs .
-docker run --rm -p 127.0.0.1:8080:8080 atlas-docs
+docker compose --profile ai up --build -d
+docker compose exec ollama ollama pull qwen2.5:1.5b
+docker compose exec atlas doctor
 ```
 
-The container starts with fictional text documents. Its index is ephemeral unless you mount a persistent directory and pass `--db`. The Docker build and real model downloads have not been validated in the initial development environment.
+Compose reads `.env`; the Python CLI does not load it automatically. The AI image downloads CPU dependencies and model weights and needs more disk space and memory than the default image. Default Docker startup and persistence are tested in CI; the optional Compose AI profile combines the same adapters tested by the separate real-model workflow.
 
-## Evaluation and validation
+## Verification and limits
 
-Run ingestion before `eval`, ideally with a fresh index containing only the demo corpus. Results describe a tiny synthetic dataset, not real legal or financial accuracy. No large-corpus or latency claims are made. The test suite covers duplicate ingestion, page-aware chunking, cache invalidation, citation rejection, adapter contracts, retrieval, and HTTP origin validation. Semantic/model adapters are tested with mocks; end-to-end model quality still needs evaluation.
+```bash
+python -m unittest discover -s tests -v
+python -m atlas ingest examples/documents
+python -m atlas eval
+```
 
-## Operating limits
+`eval` reports Recall@5 and MRR@5 on six fictional queries. Use an index containing only the demo corpus. This is a regression fixture, not evidence of general document-answering accuracy. See [validation](docs/validation.md), [API](docs/api.md), [architecture](docs/architecture.md), and [remaining extensions](docs/roadmap.md).
 
-The HTTP server binds to loopback by default and accepts only localhost Host/Origin values. It has no authentication, tenancy, TLS, asynchronous ingestion, or rate limiting. The corpus and dense vectors are loaded into process memory; BM25 scans all chunks per query. Keep it local and small. Configure a production API gateway and access controls before remote use.
+The server is for local use: loopback by default, localhost Host/Origin checks, no accounts, tenant isolation, TLS, or remote deployment gateway. PDF parsing is synchronous. Records and dense vectors reside in memory while serving; dense search is linear in corpus size. Scanned-PDF OCR, large-scale search, and multi-user hosting are outside this release.
 
-MIT licensed. Example documents are fictional and contain no real customer data.
+MIT licensed. All example documents are fictional.

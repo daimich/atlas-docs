@@ -107,6 +107,11 @@ class Store:
                 SELECT c.*, d.name FROM chunks c JOIN documents d ON d.id=c.document_id ORDER BY c.id
             """)]
 
+    def fingerprint(self):
+        with self.connect() as db:
+            # Content-addressed document IDs change on additions and removals.
+            return tuple(r[0] for r in db.execute("SELECT id FROM documents ORDER BY id"))
+
     def delete(self, identifier):
         with self.connect() as db:
             return bool(db.execute("DELETE FROM documents WHERE id=?", (identifier,)).rowcount)

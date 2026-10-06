@@ -1,11 +1,11 @@
-# Roadmap
+# Remaining extensions
 
-The current release is an end-to-end local MVP. These extensions are not yet implemented.
+Version 0.2 completes the documented local upload → retrieve → answer → inspect/delete workflow, including optional model adapters, persistent embeddings, diagnostics and automated acceptance checks. The following are separate future extensions:
 
-1. Add a larger held-out document corpus and measure retrieval relevance, citation support, abstention, and latency separately.
-2. Add persistent dense vector storage and a measured reranking stage.
-3. Move PDF parsing and ingestion to isolated background jobs with retry and idempotency controls.
-4. Introduce document permissions, tenant isolation, audit trails, and deployment authentication.
-5. Add streaming generation and conversation history after source-grounding behavior is tested.
+1. A larger held-out corpus measuring relevance, answer support, abstention and latency independently.
+2. OCR for scanned PDFs and isolated background parsing jobs.
+3. Reranking and an ANN/vector database for larger corpora.
+4. Authenticated multi-user hosting, per-document permissions and audit trails.
+5. Streaming generation and conversation history.
 
-Keep benchmark claims tied to a committed dataset and reproducible command. Avoid describing toy-fixture results as real-world accuracy.
+The tiny bundled evaluation is a regression fixture. Do not describe its results as real-world accuracy.

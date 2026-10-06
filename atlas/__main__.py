@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from pathlib import Path
 
 from .service import Service
@@ -9,9 +10,9 @@ from .web import make_server
 def main():
     parser = argparse.ArgumentParser(description="Atlas document intelligence")
     parser.add_argument("--db", default=".atlas/index.sqlite3")
-    parser.add_argument("--semantic-model", help="Sentence Transformers model path or ID")
-    parser.add_argument("--ollama-model", help="Use a locally installed Ollama model for generation")
-    parser.add_argument("--ollama-url", default="http://localhost:11434")
+    parser.add_argument("--semantic-model", default=os.environ.get("SEMANTIC_MODEL"), help="Sentence Transformers model path or ID")
+    parser.add_argument("--ollama-model", default=os.environ.get("OLLAMA_MODEL"), help="Use a locally installed Ollama model for generation")
+    parser.add_argument("--ollama-url", default=os.environ.get("OLLAMA_URL", "http://localhost:11434"))
     sub = parser.add_subparsers(dest="command", required=True)
     ingest = sub.add_parser("ingest")
     ingest.add_argument("path", type=Path)
@@ -26,13 +27,25 @@ def main():
     serve.add_argument("--bind", choices=["127.0.0.1", "0.0.0.0"], default="127.0.0.1")
     evaluate = sub.add_parser("eval")
     evaluate.add_argument("--dataset", type=Path, default=Path("examples/evaluation.json"))
+    sub.add_parser("doctor")
     args = parser.parse_args()
-    service = Service(args.db, args.semantic_model, args.ollama_model, args.ollama_url)
     try:
-        if args.command == "ingest":
+        service = Service(args.db, args.semantic_model, args.ollama_model, args.ollama_url)
+        if args.command == "doctor":
+            status = service.status(check=True)
+            print(json.dumps(status, indent=2))
+            if not status["ready"]:
+                parser.exit(1)
+        elif args.command == "ingest":
+            if not args.path.exists():
+                raise ValueError(f"Input path does not exist: {args.path}")
+            if args.path.is_file() and args.path.suffix.lower() not in {".txt", ".md", ".pdf"}:
+                raise ValueError("Supported formats: .txt, .md, .pdf")
             paths = sorted(args.path.rglob("*")) if args.path.is_dir() else [args.path]
             results = [service.ingest(path.name, path.read_bytes()) for path in paths
                        if path.is_file() and not path.is_symlink() and path.suffix.lower() in {".txt", ".md", ".pdf"}]
+            if not results:
+                raise ValueError("No supported documents found")
             print(json.dumps(results, indent=2))
         elif args.command == "list":
             print(json.dumps(service.store.documents(), indent=2))

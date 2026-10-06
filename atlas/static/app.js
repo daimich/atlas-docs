@@ -18,7 +18,7 @@ async function refresh() {
     info.append(node('strong', doc.name), node('small', doc.pages + ' pages · ' + doc.chunks + ' passages'));
     const remove = node('button', '×', 'remove'); remove.title = 'Delete ' + doc.name;
     remove.addEventListener('click', async () => {
-      try { await api('delete', {id: doc.id}); await refresh(); status('Document removed.'); }
+      try { await api('delete', {id: doc.id}); await refresh(); $('results').replaceChildren(); status('Document removed.'); }
       catch (error) { status(error.message); }
     });
     row.append(info, remove); $('inventory').append(row);
@@ -39,7 +39,7 @@ $('upload').addEventListener('change', async (event) => {
     }
     await refresh(); status('Documents indexed. Ready to search.');
   } catch (error) { status(error.message); }
-  finally { $('upload').value = ''; $('upload').disabled = false; }
+  finally { $('upload').value = ''; $('upload').disabled = false; await refresh().catch(error => status(error.message)); }
 });
 $('query-form').addEventListener('submit', async (event) => {
   event.preventDefault(); $('submit').disabled = true; status('Searching the evidence…');
@@ -61,3 +61,5 @@ document.querySelectorAll('[data-query]').forEach(button => button.addEventListe
   $('query').value = button.dataset.query; $('query').focus();
 }));
 refresh().catch(error => status(error.message));
+
+api('status').then(meta => { $('model-info').textContent = meta.retrieval + ' · ' + (meta.ollama_model || 'source excerpts') + (meta.pdf_available ? ' · PDF ready' : ' · PDF: install the pdf extra'); }).catch(error => status(error.message));

@@ -7,6 +7,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+from .models import ModelError
+
 LOG = logging.getLogger(__name__)
 MAX_BODY = 22 * 1024 * 1024
 
@@ -17,7 +19,7 @@ def make_server(service, port=8080, bind="127.0.0.1"):
     class Handler(BaseHTTPRequestHandler):
         def setup(self):
             super().setup()
-            self.connection.settimeout(100)
+            self.connection.settimeout(150)
 
         def log_message(self, *args):
             # Queries and document text are deliberately excluded from access logs.
@@ -55,6 +57,8 @@ def make_server(service, port=8080, bind="127.0.0.1"):
                 self.send(200, Path(__file__).with_name("static").joinpath("app.js").read_bytes(), "text/javascript; charset=utf-8")
             elif parsed.path == "/api/health":
                 self.send(200, {"status": "ok"})
+            elif parsed.path == "/api/status":
+                self.send(200, service.status())
             elif parsed.path == "/api/documents":
                 self.send(200, service.store.documents())
             else:
@@ -93,6 +97,8 @@ def make_server(service, port=8080, bind="127.0.0.1"):
                     self.send(200, {"deleted": service.delete(identifier)})
                 else:
                     self.send(404, {"error": "Not found"})
+            except ModelError as exc:
+                self.send(503, {"error": str(exc)})
             except (ValueError, TypeError) as exc:
                 self.send(400, {"error": str(exc)})
             except Exception:

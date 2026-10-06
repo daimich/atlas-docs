@@ -106,7 +106,7 @@ class AtlasTests(unittest.TestCase):
 
     def test_ollama_adapter_request_and_response(self):
         hit = {"id": "a", "name": "contract.md", "page": 1, "text": "Payment is due in thirty days."}
-        payload = {"abstain": False, "claims": [{"text": "Thirty days", "citation": "a", "quote": hit["text"]}]}
+        payload = {"abstain": False, "claims": [{"text": "Thirty days", "citation": "S1"}]}
         with patch("urllib.request.urlopen") as mocked:
             mocked.return_value.__enter__.return_value.read.return_value = json.dumps({"response": json.dumps(payload)}).encode()
             result = answer("When?", [hit], "local-model")
