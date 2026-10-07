@@ -51,10 +51,10 @@ PDFs must be unencrypted, at most 15 MiB and 2,000 pages. Scanned PDFs require O
 Install [Ollama](https://ollama.com/download) and start it (`ollama serve` if the desktop app is not already running). In another terminal:
 
 ```bash
-ollama pull qwen2.5:1.5b
+ollama pull qwen2.5:3b
 python -m pip install '.[semantic,pdf]'
-python -m atlas --semantic-model sentence-transformers/all-MiniLM-L6-v2 --ollama-model qwen2.5:1.5b doctor
-python -m atlas --semantic-model sentence-transformers/all-MiniLM-L6-v2 --ollama-model qwen2.5:1.5b serve
+python -m atlas --semantic-model sentence-transformers/all-MiniLM-L6-v2 --ollama-model qwen2.5:3b doctor
+python -m atlas --semantic-model sentence-transformers/all-MiniLM-L6-v2 --ollama-model qwen2.5:3b serve
 ```
 
 Semantic retrieval and generation can be enabled independently. Embedding weights download on first use; a local model directory also works. `doctor` loads the embedding model and checks that Ollama has the requested model, exiting with a nonzero status when setup is incomplete. Model size and hardware determine latency; the small model above is an acceptance-test baseline, not a quality guarantee.
@@ -76,14 +76,14 @@ For the AI profile, create a local `.env` file with:
 ```dotenv
 ENABLE_SEMANTIC=1
 SEMANTIC_MODEL=sentence-transformers/all-MiniLM-L6-v2
-OLLAMA_MODEL=qwen2.5:1.5b
+OLLAMA_MODEL=qwen2.5:3b
 ```
 
 Then run:
 
 ```bash
 docker compose --profile ai up --build -d
-docker compose exec ollama ollama pull qwen2.5:1.5b
+docker compose exec ollama ollama pull qwen2.5:3b
 docker compose exec atlas doctor
 ```
 
