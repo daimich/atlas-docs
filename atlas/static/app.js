@@ -45,12 +45,14 @@ $('query-form').addEventListener('submit', async (event) => {
   event.preventDefault(); $('submit').disabled = true; status('Searching the evidence…');
   try {
     const result = await api('ask', {question: $('query').value, k: 5}); $('results').replaceChildren();
-    $('mode').textContent = result.mode === 'ollama' ? 'Generated answer · quotes checked' : 'Evidence excerpts';
-    if (result.abstained) $('results').append(node('div', 'No matching evidence was found. Try a more specific question or add documents.', 'empty'));
-    result.claims.forEach((claim, index) => {
+    const showEvidence = result.abstained && result.evidence.length > 0;
+    $('mode').textContent = showEvidence ? 'Source evidence · model abstained' : (result.mode === 'ollama' ? 'Generated answer · quotes checked' : 'Evidence excerpts');
+    if (result.abstained) $('results').append(node('div', showEvidence ? 'The model could not support an answer. Review the retrieved passages below.' : 'No matching evidence was found. Try a more specific question or add documents.', 'empty'));
+    const claims = showEvidence ? result.evidence.map(source => ({...source, quote: source.text})) : result.claims;
+    claims.forEach((claim, index) => {
       const card = node('article', '', 'card');
       card.append(node('div', '[' + (index + 1) + '] ' + claim.name + ' · page ' + claim.page, 'citation'));
-      if (result.mode === 'ollama') card.append(node('p', claim.text, 'claim'));
+      if (result.mode === 'ollama' && !showEvidence) card.append(node('p', claim.text, 'claim'));
       card.append(node('blockquote', claim.quote)); $('results').append(card);
     });
     status(result.retrieval + ' · retrieval ' + result.latency_ms + ' ms');

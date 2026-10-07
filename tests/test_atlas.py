@@ -106,12 +106,14 @@ class AtlasTests(unittest.TestCase):
 
     def test_ollama_adapter_request_and_response(self):
         hit = {"id": "a", "name": "contract.md", "page": 1, "text": "Payment is due in thirty days."}
-        payload = {"abstain": False, "claims": [{"text": "Thirty days", "citation": "S1"}]}
+        payload = {"claims": [{"text": "Thirty days", "citation": "S1"}]}
         with patch("urllib.request.urlopen") as mocked:
-            mocked.return_value.__enter__.return_value.read.return_value = json.dumps({"response": json.dumps(payload)}).encode()
+            mocked.return_value.__enter__.return_value.read.return_value = json.dumps({"message": {"content": json.dumps(payload)}}).encode()
             result = answer("When?", [hit], "local-model")
         self.assertEqual(result["mode"], "ollama")
         request = mocked.call_args.args[0]
+        self.assertTrue(request.full_url.endswith('/api/chat'))
+        self.assertEqual(json.loads(request.data)['messages'][1]['role'], 'user')
         self.assertFalse(json.loads(request.data)["stream"])
 
     def test_dense_fusion_adapter_with_fake_encoder(self):

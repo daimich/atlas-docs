@@ -31,19 +31,24 @@ class RegressionTests(unittest.TestCase):
 
     def test_source_quote_is_attached_from_evidence(self):
         evidence = [{'id': 'long-document-id', 'text': 'Payment is due in thirty days.'}]
-        payload = {'abstain': False, 'claims': [{'text': 'Thirty days.', 'citation': 'S1'}]}
-        with patch('atlas.models.model_request', return_value={'response': json.dumps(payload)}):
+        payload = {'claims': [{'text': 'Thirty days.', 'citation': 'S1'}]}
+        with patch('atlas.models.model_request', return_value={'message': {'content': json.dumps(payload)}}):
             result = generate_claims('When?', evidence, 'model', 'http://localhost:11434')
         self.assertEqual(result['claims'][0]['citation'], 'long-document-id')
         self.assertEqual(result['claims'][0]['quote'], evidence[0]['text'])
 
     def test_invalid_citation_retries_and_remains_an_error(self):
         evidence = [{'id': 'x', 'text': 'Payment is due in thirty days.'}]
-        payload = {'abstain': False, 'claims': [{'text': 'Wrong', 'citation': 'S2'}]}
-        with patch('atlas.models.model_request', return_value={'response': json.dumps(payload)}) as request:
+        payload = {'claims': [{'text': 'Wrong', 'citation': 'S2'}]}
+        with patch('atlas.models.model_request', return_value={'message': {'content': json.dumps(payload)}}) as request:
             with self.assertRaises(ModelError):
                 generate_claims('When?', evidence, 'model', 'http://localhost:11434')
         self.assertEqual(request.call_count, 2)
+
+    def test_empty_model_claims_abstain_without_redundant_flag(self):
+        with patch('atlas.models.model_request', return_value={'message': {'content': '{"claims": []}'}}):
+            result = generate_claims('Who?', [{'id': 'x', 'text': 'No named person.'}], 'model', 'http://localhost:11434')
+        self.assertEqual(result, {'abstain': True, 'claims': []})
 
     def test_model_unavailable_has_actionable_error(self):
         with patch('urllib.request.urlopen', side_effect=urllib.error.URLError('connection refused')):

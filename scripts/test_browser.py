@@ -32,6 +32,16 @@ def main():
                 page.locator('#submit').click()
                 expect(page.locator('#results blockquote')).to_contain_text('thirty days')
                 expect(page.locator('#results .citation')).to_contain_text('notice.md')
+                # Exercise presentation of a valid abstention using the real retrieved evidence.
+                def abstain(route):
+                    response = route.fetch()
+                    payload = dict(response.json(), mode='ollama', abstained=True, claims=[])
+                    route.fulfill(response=response, json=payload)
+                page.route('**/api/ask', abstain)
+                page.locator('#submit').click()
+                expect(page.locator('#mode')).to_have_text('Source evidence · model abstained')
+                expect(page.locator('#results blockquote')).to_contain_text('thirty days')
+                page.unroute('**/api/ask', abstain)
                 page.reload()
                 expect(page.locator('#count')).to_have_text('1 documents')
                 page.get_by_title('Delete notice.md').click()
@@ -48,7 +58,7 @@ def main():
             server.shutdown()
             server.server_close()
             worker.join()
-    print('PASS: empty state, upload, cited answer, reload, deletion, validation, no browser errors')
+    print('PASS: empty state, upload, cited answer, abstention evidence, reload, deletion, validation, no browser errors')
 
 
 if __name__ == '__main__':

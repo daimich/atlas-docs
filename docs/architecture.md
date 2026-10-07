@@ -12,4 +12,4 @@ Ollama receives a bounded ranked context as untrusted source data and a JSON sch
 
 The browser uses DOM textContent for source material. Host/Origin checks, bounded JSON bodies, local binding, and a non-root Docker user support local operation. PDF parsing is synchronous and has no worker resource isolation. These choices do not constitute multi-user production infrastructure.
 
-Primary references: [Sentence Transformers](https://sbert.net/docs/package_reference/sentence_transformer/model.html), [Ollama generation](https://docs.ollama.com/api/generate), [SQLite](https://docs.python.org/3/library/sqlite3.html).
+Primary references: [Sentence Transformers](https://sbert.net/docs/package_reference/sentence_transformer/model.html), [Ollama generation](https://docs.ollama.com/api/chat), [SQLite](https://docs.python.org/3/library/sqlite3.html).
