@@ -113,7 +113,9 @@ class AtlasTests(unittest.TestCase):
         self.assertEqual(result["mode"], "ollama")
         request = mocked.call_args.args[0]
         self.assertTrue(request.full_url.endswith('/api/chat'))
-        self.assertEqual(json.loads(request.data)['messages'][1]['role'], 'user')
+        message = json.loads(request.data)['messages'][-1]
+        self.assertEqual(message['role'], 'user')
+        self.assertEqual(json.loads(message['content'])['question'], 'When?')
         self.assertFalse(json.loads(request.data)["stream"])
 
     def test_dense_fusion_adapter_with_fake_encoder(self):
